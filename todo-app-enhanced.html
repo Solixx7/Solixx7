@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Todo Manager</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .todo-item { transition: all 0.3s ease; }
+        .todo-item:hover { transform: translateX(5px); }
+        .completed { text-decoration: line-through; color: #888; }
+        .priority-high { border-left: 4px solid #ef4444; }
+        .priority-medium { border-left: 4px solid #f59e0b; }
+        .priority-low { border-left: 4px solid #10b981; }
+        .dragging { opacity: 0.5; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        .search-highlight { background-color: #fef08a; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <!-- Stats Bar -->
+    <div class="max-w-3xl mx-auto mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+            <div class="text-sm text-gray-500">Total Tasks</div>
+            <div id="statsTotal" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+            <div class="text-sm text-gray-500">Completed</div>
+            <div id="statsCompleted" class="text-2xl font-bold text-green-600">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+            <div class="text-sm text-gray-500">Pending</div>
+            <div id="statsPending" class="text-2xl font-bold text-yellow-600">0</div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+            <div class="text-sm text-gray-500">Overdue</div>
+            <div id="statsOverdue" class="text-2xl font-bold text-red-600">0</div>
+        </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-lg">
+        <!-- Header -->
+        <div class="border-b p-4">
+            <h1 class="text-2xl font-bold text-gray-800">Task Manager</h1>
+            <p class="text-sm text-gray-600">Organize and track your tasks efficiently</p>
+        </div>
+
+        <!-- Search and Filters -->
+        <div class="p-4 border-b space-y-4">
+            <div class="flex flex-wrap gap-2">
+                <div class="flex-1 min-w-[200px]">
+                    <input type="text" id="searchInput" placeholder="Search tasks..." 
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300 focus:outline-none">
+                </div>
+                <button id="clearSearch" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <select id="filterSelect" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                    <option value="all">All Tasks</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="today">Due Today</option>
+                    <option value="week">Due This Week</option>
+                </select>
+                
+                <select id="categoryFilter" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                    <option value="all">All Categories</option>
+                    <option value="work">Work</option>
+                    <option value="personal">Personal</option>
+                    <option value="shopping">Shopping</option>
+                    <option value="health">Health</option>
+                    <option value="finance">Finance</option>
+                    <option value="education">Education</option>
+                </select>
+
+                <select id="priorityFilter" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                    <option value="all">All Priorities</option>
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="low">Low Priority</option>
+                </select>
+
+                <select id="sortSelect" class="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                    <option value="dueDate">Sort by Due Date</option>
+                    <option value="priority">Sort by Priority</option>
+                    <option value="category">Sort by Category</option>
+                    <option value="created">Sort by Created</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Add Todo Form -->
+        <form id="todoForm" class="p-4 border-b">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <input type="text" id="todoInput" placeholder="What needs to be done?" 
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                    <textarea id="descriptionInput" placeholder="Add description (optional)" 
+                              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300"></textarea>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex gap-2">
+                        <input type="date" id="dueDateInput" 
+                               class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                        <select id="categoryInput" 
+                                class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                            <option value="work">Work</option>
+                            <option value="personal">Personal</option>
+                            <option value="shopping">Shopping</option>
+                            <option value="health">Health</option>
+                            <option value="finance">Finance</option>
+                            <option value="education">Education</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="priorityInput" 
+                                class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-300">
+                            <option value="low">Low Priority</option>
+                            <option value="medium">Medium Priority</option>
+                            <option value="high">High Priority</option>
+                        </select>
+                        <button type="submit" 
+                                class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            <i class="fas fa-plus mr-2"></i>Add Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Todo List -->
+        <div id="todoList" class="divide-y"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden p-8 text-center">
+            <i class="fas fa-tasks text-4xl text-gray-300 mb-4"></i>
+            <p class="text-gray-500">No tasks found for the current filter.</p>
+        </div>
+    </div>
+
+    <script>
+        class TodoApp {
+            constructor() {
+                this.todos = JSON.parse(localStorage.getItem('todos')) || [];
+                this.initializeElements();
+                this.addEventListeners();
+                this.renderTodos();
+                this.updateStats();
+                this.setupDragAndDrop();
+                this.checkOverdueTasks();
+            }
+
+            initializeElements() {
+                // Form elements
+                this.todoForm = document.getElementById('todoForm');
+                this.todoInput = document.getElementById('todoInput');
+                this.descriptionInput = document.getElementById('descriptionInput');
+                this.dueDateInput = document.getElementById('dueDateInput');
+                this.categoryInput = document.getElementById('categoryInput');
+                this.priorityInput = document.getElementById('priorityInput');
+                
+                // List and filters
+                this.todoList = document.getElementById('todoList');
+                this.emptyState = document.getElementById('emptyState');
+                this.filterSelect = document.getElementById('filterSelect');
+                this.categoryFilter = document.getElementById('categoryFilter');
+                this.priorityFilter = document.getElementById('priorityFilter');
+                this.sortSelect = document.getElementById('sortSelect');
+                this.searchInput = document.getElementById('searchInput');
+                this.clearSearchBtn = document.getElementById('clearSearch');
+                
+                // Stats elements
+                this.statsTotal = document.getElementById('statsTotal');
+                this.statsCompleted = document.getElementById('statsCompleted');
+                this.statsPending = document.getElementById('statsPending');
+                this.statsOverdue = document.getElementById('statsOverdue');
+            }
+
+            addEventListeners() {
+                this.todoForm.addEventListener('submit', (e) => this.addTodo(e));
+                this.filterSelect.addEventListener('change', () => this.renderTodos());
+                this.categoryFilter.addEventListener('change', () => this.renderTodos());
+                this.priorityFilter.addEventListener('change', () => this.renderTodos());
+                this.sortSelect.addEventListener('change', () => this.renderTodos());
+                this.searchInput.addEventListener('input', () => this.renderTodos());
+                this.clearSearchBtn.addEventListener('click', () => {
+                    this.searchInput.value = '';
+                    this.renderTodos();
+                });
+
+                // Check for overdue tasks every minute
+                setInterval(() => this.checkOverdueTasks(), 60000);
+            }
+
+            setupDragAndDrop() {
+                this.todoList.addEventListener('dragstart', (e) => {
+                    e.target.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', e.target.dataset.id);
+                });
+
+                this.todoList.addEventListener('dragend', (e) => {
+                    e.target.classList.remove('dragging');
+                });
+
+                this.todoList.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    const draggable = document.querySelector('.dragging');
+                    const afterElement = this.getDragAfterElement(e.clientY);
+                    if (afterElement) {
+                        this.todoList.insertBefore(draggable, afterElement);
+                    } else {
+                        this.todoList.appendChild(draggable);
+                    }
+                });
+            }
+
+            getDragAfterElement(y) {
+                const draggableElements = [...this.todoList.querySelectorAll('.todo-item:not(.dragging)')];
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            checkOverdueTasks() {
+                const now = new Date();
+                this.todos.forEach(todo => {
+                    if (!todo.completed && todo.dueDate && new Date(todo.dueDate) < now) {
+                        // Show notification for overdue tasks
+                        if (!todo.notified) {
+                            this.showNotification(`Task Overdue: ${todo.text}`);
+                            todo.notified = true;
+                            this.saveTodos();
+                        }
+                    }
+                });
+                this.updateStats();
+            }
+
+            showNotification(message) {
+                if (Notification.permission === 'granted') {
+                    new Notification(message);
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            new Notification(message);
+                        }
+                    });
+                }
+            }
+
+            addTodo(e) {
+                e.preventDefault();
+                const text = this.todoInput.value.trim();
+                if (!text) return;
+
+                const todo = {
+                    id: Date.now(),
+                    text: text,
+                    description: this.descriptionInput.value.trim(),
+                    completed: false,
+                    category: this.categoryInput.value,
+                    priority: this.priorityInput.value,
+                    dueDate: this.dueDateInput.value,
+                    createdAt: new Date().toISOString(),
+                    notified: false
+                };
+
+                this.todos.unshift(todo);
+                this.saveTodos();
+                this.renderTodos();
+                this.updateStats();
+                this.todoForm.reset();
+
+                // Show success message
+                const successMsg = document.createElement('div');
+                successMsg.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg fade-in';
+                successMsg.textContent = 'Task added successfully!';
+                document.body.appendChild(successMsg);
+                setTimeout(() => successMsg.remove(), 3000);
+            }
+
+            toggleTodo(id) {
+                this.todos = this.todos.map(todo =>
+                    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+                );
+                this.saveTodos();
+                this.renderTodos();
+                this.updateStats();
+            }
+
+            deleteTodo(id) {
+                if (!confirm('Are you sure you want to delete this task?')) return;
+                this.todos = this.todos.filter(todo => todo.id !== id);
+                this.saveTodos();
+                this.renderTodos();
+                this.updateStats();
+            }
+
+            saveTodos() {
+                localStorage.setItem('todos', JSON.stringify(this.todos));
+            }
+
+            updateStats() {
+                const now = new Date();
+                const stats = this.todos.reduce((acc, todo) => {
+                    acc.total++;
+                    if (todo.completed) acc.completed++;
+                    if (!todo.completed) acc.pending++;
+                    if (!todo.completed && todo.dueDate && new Date(todo.dueDate) < now) {
+                        acc.overdue++;
+                    }
+                    return acc;
+                }, { total: 0, completed: 0, pending: 0, overdue: 0 });
+
+                this.statsTotal.textContent = stats.total;
+                this.statsCompleted.textContent = stats.completed;
+                this.statsPending.textContent = stats.pending;
+                this.statsOverdue.textContent = stats.overdue;
+            }
+
+            renderTodos() {
+                const filter = this.filterSelect.value;
+                const category = this.categoryFilter.value;
+                const priority = this.priorityFilter.value;
+                const searchQuery = this.searchInput.value.toLowerCase();
+                const sortBy = this.sortSelect.value;
+
+                let filteredTodos = this.todos.filter(todo => {
+                    const matchesFilter = filter === 'all' ||
+                        (filter === 'active' && !todo.completed) ||
+                        (filter === 'completed' && todo.completed) ||
+                        (filter === 'overdue' && !todo.completed && todo.dueDate && new Date(todo.dueDate) < new Date()) ||
+                        (filter === 'today' && todo.dueDate && new Date(todo.dueDate).toDateString() === new Date().toDateString()) ||
+                        (filter === 'week' && todo.dueDate && this.isDateThisWeek(new Date(todo.dueDate)));
+
+                    const matchesCategory = category === 'all' || todo.category === category;
+                    const matchesPriority = priority === 'all' || todo.priority === priority;
+                    const matchesSearch = todo.text.toLowerCase().includes(searchQuery) || 
+                                         todo.description.toLowerCase().includes(searchQuery);
+
+                    return matchesFilter && matchesCategory && matchesPriority && matchesSearch;
+                });
+
+                // Sort todos
+                if (sortBy === 'dueDate') {
+                    filteredTodos.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+                } else if (sortBy === 'priority') {
+                    const priorityOrder = { high: 3, medium: 2, low: 1 };
+                    filteredTodos.sort((a, b) => priorityOrder[b.priority] - priorityOrder[a.priority]);
+                } else if (sortBy === 'category') {
+                    filteredTodos.sort((a, b) => a.category.localeCompare(b.category));
+                } else if (sortBy === 'created') {
+                    filteredTodos.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                }
+
+                // Render todos
+                this.todoList.innerHTML = '';
+                if (filteredTodos.length === 0) {
+                    this.emptyState.classList.remove('hidden');
+                } else {
+                    this.emptyState.classList.add('hidden');
+                    filteredTodos.forEach(todo => {
+                        const todoItem = document.createElement('div');
+                        todoItem.className = `todo-item p-4 flex items-center justify-between ${todo.completed ? 'completed' : ''} ${todo.priority ? `priority-${todo.priority}` : ''}`;
+                        todoItem.draggable = true;
+                        todoItem.dataset.id = todo.id;
+
+                        const todoContent = document.createElement('div');
+                        todoContent.className = 'flex-1';
+                        todoContent.innerHTML = `
+                            <div class="font-medium">${this.highlightSearch(todo.text, searchQuery)}</div>
+                            ${todo.description ? `<div class="text-sm text-gray-600">${this.highlightSearch(todo.description, searchQuery)}</div>` : ''}
+                            <div class="text-xs text-gray-500 mt-1">
+                                <span>${todo.category}</span> • 
+                                <span>Due: ${todo.dueDate ? new Date(todo.dueDate).toLocaleDateString() : 'No due date'}</span>
+                            </div>
+                        `;
+
+                        const todoActions = document.createElement('div');
+                        todoActions.className = 'flex items-center gap-2';
+                        todoActions.innerHTML = `
+                            <button onclick="app.toggleTodo(${todo.id})" class="p-2 text-gray-500 hover:text-green-500">
+                                <i class="fas ${todo.completed ? 'fa-undo' : 'fa-check'}"></i>
+                            </button>
+                            <button onclick="app.deleteTodo(${todo.id})" class="p-2 text-gray-500 hover:text-red-500">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        `;
+
+                        todoItem.appendChild(todoContent);
+                        todoItem.appendChild(todoActions);
+                        this.todoList.appendChild(todoItem);
+                    });
+                }
+            }
+
+            highlightSearch(text, query) {
+                if (!query) return text;
+                const regex = new RegExp(`(${query})`, 'gi');
+                return text.replace(regex, '<span class="search-highlight">$1</span>');
+            }
+
+            isDateThisWeek(date) {
+                const now = new Date();
+                const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+                const endOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+                return date >= startOfWeek && date <= endOfWeek;
+            }
+        }
+
+        // Initialize the app
+        const app = new TodoApp();
+        window.app = app; // Make app globally accessible for inline event handlers
+    </script>
+</body>
+</html>
